@@ -15,6 +15,8 @@ import seaborn as sns
 from pathlib import Path
 import io
 import platform
+import urllib.request
+import os
 
 # Page configuration
 st.set_page_config(
@@ -56,6 +58,24 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# Download model from GitHub Release if not exists
+@st.cache_resource
+def download_model_if_needed(model_name="best_health_model.pth"):
+    """Download model from GitHub release if it doesn't exist locally"""
+    model_path = Path(model_name)
+    
+    if not model_path.exists():
+        st.info("📥 Downloading model from GitHub Release... This may take a moment.")
+        try:
+            url = "https://github.com/Hoanghuyen2k3/plant_health_assessment/releases/download/v1.0/best_health_model.pth"
+            urllib.request.urlretrieve(url, model_path)
+            st.success(f"✅ Model downloaded successfully!")
+        except Exception as e:
+            st.error(f"❌ Failed to download model: {str(e)}")
+            st.info("💡 Please ensure you have internet connection and the release URL is correct.")
+            return None
+    return model_path
 
 # Model Architecture Definitions
 class SimpleCNN(nn.Module):
@@ -237,12 +257,12 @@ def main():
     with st.sidebar:
         st.header("⚙️ Configuration")
         
-        # Model path input
-        model_path = st.text_input(
-            "Model Path",
-            value="best_health_model.pth",
-            help="Path to the saved model file"
-        )
+        # Auto-download model from GitHub
+        model_path = download_model_if_needed("best_health_model.pth")
+        
+        if model_path is None:
+            st.error("❌ Cannot proceed without model file")
+            return
         
         model_type = st.selectbox(
             "Model Type",
@@ -312,18 +332,14 @@ def main():
         # Load model
         if load_model_btn:
             try:
-                if not Path(model_path).exists():
-                    st.error(f"❌ Model file not found at: {model_path}")
-                    st.info("💡 Make sure the model file exists. You may need to adjust the path.")
-                else:
-                    with st.spinner("Loading model..."):
-                        model, device, detected_type = load_model(model_path, model_type)
-                        st.session_state.model = model
-                        st.session_state.device = device
-                        st.session_state.model_type = detected_type
-                        st.session_state.model_loaded = True
-                        st.success(f"✅ Model loaded successfully! Type: {detected_type}")
-                        st.rerun()
+                with st.spinner("Loading model..."):
+                    model, device, detected_type = load_model(model_path, model_type)
+                    st.session_state.model = model
+                    st.session_state.device = device
+                    st.session_state.model_type = detected_type
+                    st.session_state.model_loaded = True
+                    st.success(f"✅ Model loaded successfully! Type: {detected_type}")
+                    st.rerun()
             except Exception as e:
                 st.error(f"❌ Error loading model: {str(e)}")
                 st.session_state.model_loaded = False
