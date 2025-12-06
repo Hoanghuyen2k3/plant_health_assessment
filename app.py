@@ -299,7 +299,7 @@ def main():
         st.markdown('<h2 class="sub-header">📤 Upload Plant Image</h2>', unsafe_allow_html=True)
         
         # Tabs for different input methods
-        tab1, tab2 = st.tabs(["📁 Upload File", "📋 Paste from Clipboard"])
+        tab1, tab2 = st.tabs(["📁 Upload File", "🌐 Load from URL"])
         
         with tab1:
             uploaded_file = st.file_uploader(
@@ -313,21 +313,24 @@ def main():
                 st.session_state.uploaded_image = image
         
         with tab2:
-            paste_btn = st.button("📋 Paste Image from Clipboard", use_container_width=True, key="paste_btn")
-            if paste_btn:
-                with st.spinner("Getting image from clipboard..."):
-                    clipboard_image = get_clipboard_image()
-                if clipboard_image is not None:
-                    st.session_state.uploaded_image = clipboard_image
-                    st.session_state.paste_active = True
-                    st.success("✅ Image pasted successfully!")
-                else:
-                    st.error("❌ No image found in clipboard.")
-                    st.info("💡 Try copying an image from your browser or screenshot tool first.")
+            image_url = st.text_input(
+                "🌐 Image URL",
+                placeholder="https://example.com/plant-image.jpg",
+                help="Paste a direct link to an image (from website, Unsplash, etc.)"
+            )
             
-            # Show pasted image if it exists
-            if 'uploaded_image' in st.session_state and st.session_state.get('paste_active', False):
-                st.image(st.session_state.uploaded_image, caption="Pasted Image", use_container_width=True)
+            if image_url:
+                try:
+                    with st.spinner("Loading image from URL..."):
+                        from urllib.request import urlopen
+                        img_response = urlopen(image_url)
+                        image = Image.open(img_response).convert('RGB')
+                        st.image(image, caption="Image from URL", use_container_width=True)
+                        st.session_state.uploaded_image = image
+                        st.success("✅ Image loaded successfully!")
+                except Exception as e:
+                    st.error(f"❌ Could not load image: {str(e)}")
+                    st.info("💡 Make sure the URL is a direct link to an image file")
         
         # Load model
         if load_model_btn:
